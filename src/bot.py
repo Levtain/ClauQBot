@@ -3,6 +3,7 @@ Bot核心逻辑模块
 """
 import re
 import asyncio
+import inspect
 from typing import Dict, Any, List, Optional
 import logging
 from .onebot_client import OneBotClient
@@ -47,8 +48,9 @@ class Bot:
         self.heartbeat_task: Optional[asyncio.Task] = None
         self.online_status = True
         self.connection_failures = 0
-        self.max_connection_failures = 3
-        self.heartbeat_interval = 60  # 秒
+        self.max_connection_failures = bot_config.get('max_connection_failures', 3)
+        self.heartbeat_interval = bot_config.get('heartbeat_interval', 60)  # 秒
+        self.heartbeat_enabled = bot_config.get('heartbeat_enabled', True)
 
         # 状态回调（用于WebUI更新）
         self.status_callbacks = []
@@ -59,6 +61,10 @@ class Bot:
 
     async def start_heartbeat(self):
         """启动心跳检测"""
+        if not self.heartbeat_enabled:
+            self.logger.info("心跳检测已禁用")
+            return
+
         if self.heartbeat_task is None or self.heartbeat_task.done():
             self.logger.info("启动心跳检测...")
             self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
@@ -103,14 +109,19 @@ class Bot:
     async def _test_connection(self):
         """测试连接"""
         try:
-            # 发送一个轻量级的API调用
-            # 使用get_status作为心跳测试
-            await self.client.send({"action": "get_status"})
+            # 使用WebSocket ping作为心跳测试，而不是API调用
+            # 这更安全，不依赖特定的API
+            if self.client.websocket and not self.client.websocket.closed:
+                # 发送WebSocket ping
+                await self.client.websocket.ping()
+                self.last_heartbeat_time = asyncio.get_event_loop().time()
 
-            # 连接成功，重置失败计数
-            if self.connection_failures > 0:
-                self.logger.info(f"NapCat连接已恢复")
-                self.connection_failures = 0
+                # 连接成功，重置失败计数
+                if self.connection_failures > 0:
+                    self.logger.info(f"NapCat连接已恢复")
+                    self.connection_failures = 0
+            else:
+                raise ConnectionError("WebSocket未连接")
 
         except Exception as e:
             self.connection_failures += 1
@@ -146,7 +157,8 @@ class Bot:
         # 调用所有回调
         for callback in self.status_callbacks:
             try:
-                if asyncio.iscoroutinefunction(callback):
+                # 使用inspect.iscoroutinefunction代替asyncio.iscoroutinefunction
+                if inspect.iscoroutinefunction(callback):
                     asyncio.create_task(callback(status))
                 else:
                     callback(status)
@@ -160,7 +172,8 @@ class Bot:
             "connection_failures": self.connection_failures,
             "heartbeat_interval": self.heartbeat_interval,
             "client_connected": self.client.is_connected(),
-            "message_count": len(self.processing_messages)
+            "message_count": len(self.processing_messages),
+            "heartbeat_enabled": self.heartbeat_enabled
         }
 
     async def on_message(self, data: Dict[str, Any]):
