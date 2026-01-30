@@ -1,0 +1,55 @@
+# Claude QQ Bridge 配置文件
+
+# 网络配置
+network:
+  onebot_ws_url: "ws://127.0.0.1:8081"  # OneBot WebSocket地址
+  reconnect_interval: 5  # 重连间隔（秒）
+  timeout: 30  # 超时时间（秒）
+
+# 代理配置
+proxy:
+  enabled: false
+  http_proxy: ""
+  https_proxy: ""
+  no_proxy: "localhost,127.0.0.1"
+
+# Claude配置
+claude:
+  cli_path: "claude"  # Claude CLI路径，默认在PATH中
+  work_dir: "."  # 工作目录，默认为项目根目录
+  timeout: 300  # 超时时间（秒）
+
+# Bot配置
+bot:
+  qq_number: ""  # Bot QQ号（用于识别@消息）
+  auto_reply_private: true  # 私聊自动回复
+  ignore_temp_session: true  # 忽略临时会话
+  command_prefix: ["/c", "/claude", "/问", "/ask"]  # 命令前缀
+
+# 后台配置
+daemon:
+  enabled: false  # 是否启用后台模式
+  pid_file: "/tmp/claude-qq-bridge.pid"  # PID文件路径
+  log_file: "logs/daemon.log"  # 后台日志文件
+
+# 日志配置
+logging:
+  level: "INFO"  # 日志级别: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  console: true  # 是否输出到控制台
+  file:
+    enabled: true  # 是否输出到文件
+    path: "logs/app.log"  # 日志文件路径
+    max_size: 10485760  # 单文件最大大小（10MB）
+    backup_count: 5  # 保留的备份文件数
+
+# WebUI配置
+webui:
+  enabled: true  # 是否启用WebUI
+  host: "127.0.0.1"  # 监听地址
+  port: 8501  # 端口号
+
+# API配置
+api:
+  enabled: true  # 是否启用API
+  host: "127.0.0.1"  # 监听地址
+  port: 8000  # 端口号
