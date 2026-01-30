@@ -24,8 +24,8 @@ logger = get_logger(__name__)
 
 # FastAPI应用
 app = FastAPI(
-    title="Claude QQ Bridge API",
-    description="Claude QQ Bridge 后端API",
+    title="ClauQBot API",
+    description="ClauQBot 后端API",
     version="0.1.0"
 )
 
@@ -73,7 +73,7 @@ async def root():
     """根路径"""
     return {
         "status": "running",
-        "service": "Claude QQ Bridge",
+        "service": "ClauQBot",
         "version": "0.1.0"
     }
 

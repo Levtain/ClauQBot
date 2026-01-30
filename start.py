@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Claude QQ Bridge 一键启动脚本
+ClauQBot 一键启动脚本
 
 NapCat是核心组件，用于注入QQ框架并提供OneBot v11协议接口。
 我们的项目作为"胶水"，将NapCat和Claude连接起来。
@@ -262,7 +262,7 @@ def start_services(daemon=False):
 
     logger = get_logger(__name__)
     logger.info("=" * 50)
-    logger.info("Claude QQ Bridge 启动中...")
+    logger.info("ClauQBot 启动中...")
     logger.info("=" * 50)
     logger.info("NapCat是核心组件，负责注入QQ框架并提供OneBot协议接口")
     logger.info("我们的项目作为'胶水'，连接NapCat和Claude")
@@ -377,7 +377,7 @@ def start_all():
 def start_all_with_napcat():
     """启动所有服务（包括NapCat）"""
     print("=" * 60)
-    print("  Claude QQ Bridge - 完整启动（含NapCat）")
+    print("  ClauQBot - 完整启动（含NapCat）")
     print("=" * 60)
     print()
 
@@ -412,7 +412,7 @@ def start_all_with_napcat():
     print()
 
     # 4. 启动我们的服务
-    print("[4/4] 启动Claude QQ Bridge服务...")
+    print("[4/4] 启动ClauQBot服务...")
     print()
 
     # 启动API和WebUI（子进程）
@@ -446,7 +446,7 @@ def start_all_with_napcat():
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description="Claude QQ Bridge - 一键启动脚本",
+        description="ClauQBot - 一键启动脚本",
         epilog="NapCat是核心组件，负责注入QQ框架并提供OneBot协议接口"
     )
     parser.add_argument(

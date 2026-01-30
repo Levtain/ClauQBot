@@ -63,4 +63,4 @@ jobs:
       with:
         context: .
         push: true
-        tags: candle/claude-qq-bridge:latest
+        tags: candle/clauqbot:latest

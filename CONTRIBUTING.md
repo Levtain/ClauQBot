@@ -1,6 +1,6 @@
-# Contributing to Claude QQ Bridge
+# Contributing to ClauQBot
 
-感谢您对 Claude QQ Bridge 的关注！我们欢迎任何形式的贡献。
+感谢您对 ClauQBot 的关注！我们欢迎任何形式的贡献。
 
 ## 如何贡献
 

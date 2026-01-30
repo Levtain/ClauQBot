@@ -1,4 +1,4 @@
-# Claude QQ Bridge
+# ClauQBot
 
 一个通过OneBot协议连接QQ和Claude的桥接服务，支持私聊、群聊、命令模式，提供WebUI管理界面。
 
@@ -9,7 +9,7 @@ QQ客户端 (Windows)
   ↓ (DLL注入)
 NapCat (OneBot v11协议) ⭐ 核心组件
   ↓ (反向WebSocket)
-Claude QQ Bridge (我们的项目) 🤖 智能处理器
+ClauQBot (我们的项目) 🤖 智能处理器
   ↓ (subprocess)
 Claude Code CLI
   ↓ (API)
@@ -18,7 +18,7 @@ Claude AI
 
 **重要说明**:
 - **NapCat**: 负责注入QQ框架，获取和发送QQ消息（必须组件）
-- **Claude QQ Bridge**: 我们的项目，作为"胶水"连接NapCat和Claude（智能处理）
+- **ClauQBot**: 我们的项目，作为"胶水"连接NapCat和Claude（智能处理）
 - **分工明确**: NapCat负责"通信"，我们负责"智能"
 
 ## 📦 为什么选择NapCat？
@@ -67,7 +67,7 @@ Claude AI
 
 ```bash
 # 1. 进入项目目录
-cd /root/claude-qq-bridge
+cd ClauQBot
 
 # 2. 运行快速安装脚本
 bash install.sh
@@ -229,7 +229,7 @@ logging:
 
 在群聊中@Bot：
 ```
-@Claude 解释一下这段代码
+@ClauQBot 解释一下这段代码
 ```
 
 ### 命令模式
@@ -287,7 +287,7 @@ curl -X POST http://127.0.0.1:8000/bot/stop
 ## 📝 项目结构
 
 ```
-claude-qq-bridge/
+ClauQBot/
 ├── napcat/                    # NapCat（核心组件）
 │   ├── NapCatWinBootMain.exe  # 启动器
 │   ├── NapCatWinBootHook.dll  # Hook DLL
@@ -355,7 +355,7 @@ claude-qq-bridge/
 
 ## 🔄 与原方案对比
 
-| 特性 | 原方案 (QQBot) | 新方案 (Claude QQ Bridge) |
+| 特性 | 原方案 (QQBot) | 新方案 (ClauQBot) |
 |------|----------------|---------------------------|
 | 架构 | NoneBot2 + 自定义插件 | 独立FastAPI服务 ✅ |
 | 配置 | 硬编码代码 | YAML + WebUI ✅ |
@@ -391,7 +391,7 @@ MIT License
 ## 📞 联系方式
 
 - 作者: 蜡烛 + Claude (AI参谋)
-- 项目位置: `/root/claude-qq-bridge`
+- 项目位置: `/root/ClauQBot`
 - NapCat GitHub: https://github.com/NapNeko/NapCatQQ
 
 ## 📚 相关文档

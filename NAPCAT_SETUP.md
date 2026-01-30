@@ -24,7 +24,7 @@ QQ客户端
   ↓ (DLL注入)
 NapCat (Node.js)
   ↓ (OneBot v11协议)
-我们的Claude QQ Bridge
+我们的ClauQBot
   ↓
 Claude CLI
 ```
@@ -150,11 +150,11 @@ napcat/
 ```
 NapCat (消息源)
   ↓ (OneBot协议)
-Claude QQ Bridge (消息处理器)
+ClauQBot (消息处理器)
   ↓ (调用Claude)
 Claude AI (回复生成)
   ↓ (返回结果)
-Claude QQ Bridge (格式化回复)
+ClauQBot (格式化回复)
   ↓ (OneBot协议)
 NapCat (发送到QQ)
   ↓

@@ -15,7 +15,7 @@ API_URL = "http://127.0.0.1:8000"
 
 # 页面配置
 st.set_page_config(
-    page_title="Claude QQ Bridge",
+    page_title="ClauQBot",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -105,7 +105,7 @@ def main():
     """主界面"""
 
     # 标题
-    st.markdown('<div class="main-header">🤖 Claude QQ Bridge 管理面板</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🤖 ClauQBot 管理面板</div>', unsafe_allow_html=True)
 
     # 侧边栏
     with st.sidebar:
@@ -163,7 +163,7 @@ def main():
 
     # 主内容区
     if page == "🏠 首页":
-        st.header("欢迎使用 Claude QQ Bridge")
+        st.header("欢迎使用 ClauQBot")
 
         col1, col2 = st.columns(2)
 
