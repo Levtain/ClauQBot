@@ -2,6 +2,7 @@
 Bot核心逻辑模块
 """
 import re
+import asyncio
 from typing import Dict, Any, List, Optional
 import logging
 from .onebot_client import OneBotClient
@@ -41,6 +42,126 @@ class Bot:
 
         # 消息队列（用于处理并发）
         self.processing_messages: set = set()
+
+        # 心跳检测
+        self.heartbeat_task: Optional[asyncio.Task] = None
+        self.online_status = True
+        self.connection_failures = 0
+        self.max_connection_failures = 3
+        self.heartbeat_interval = 60  # 秒
+
+        # 状态回调（用于WebUI更新）
+        self.status_callbacks = []
+
+    def add_status_callback(self, callback):
+        """添加状态变化回调"""
+        self.status_callbacks.append(callback)
+
+    async def start_heartbeat(self):
+        """启动心跳检测"""
+        if self.heartbeat_task is None or self.heartbeat_task.done():
+            self.logger.info("启动心跳检测...")
+            self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+    async def stop_heartbeat(self):
+        """停止心跳检测"""
+        if self.heartbeat_task and not self.heartbeat_task.done():
+            self.logger.info("停止心跳检测...")
+            self.heartbeat_task.cancel()
+            try:
+                await self.heartbeat_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _heartbeat_loop(self):
+        """心跳循环"""
+        while True:
+            try:
+                # 等待心跳间隔
+                await asyncio.sleep(self.heartbeat_interval)
+
+                # 检查连接状态
+                is_connected = self.client.is_connected()
+
+                if not is_connected:
+                    self._handle_disconnect("NapCat连接已断开")
+                    continue
+
+                # 发送心跳测试
+                await self._test_connection()
+
+                # 如果之前失败过，现在恢复正常
+                if self.connection_failures > 0:
+                    self._handle_reconnect()
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error(f"心跳检测异常: {e}", exc_info=True)
+                self._handle_disconnect(f"心跳异常: {e}")
+
+    async def _test_connection(self):
+        """测试连接"""
+        try:
+            # 发送一个轻量级的API调用
+            # 使用get_status作为心跳测试
+            await self.client.send({"action": "get_status"})
+
+            # 连接成功，重置失败计数
+            if self.connection_failures > 0:
+                self.logger.info(f"NapCat连接已恢复")
+                self.connection_failures = 0
+
+        except Exception as e:
+            self.connection_failures += 1
+            self.logger.warning(f"心跳测试失败 ({self.connection_failures}/{self.max_connection_failures}): {e}")
+
+            # 连续失败次数超过阈值，判定为掉线
+            if self.connection_failures >= self.max_connection_failures:
+                self._handle_disconnect("连续心跳失败，判定为掉线")
+
+    def _handle_disconnect(self, reason: str):
+        """处理断开连接"""
+        if self.online_status:
+            self.logger.error(f"QQ/NapCat连接异常: {reason}")
+            self.online_status = False
+            self._notify_status_change()
+
+    def _handle_reconnect(self):
+        """处理重新连接"""
+        if not self.online_status:
+            self.logger.info("QQ/NapCat连接已恢复正常")
+            self.online_status = True
+            self.connection_failures = 0
+            self._notify_status_change()
+
+    def _notify_status_change(self):
+        """通知状态变化"""
+        status = {
+            "online": self.online_status,
+            "connection_failures": self.connection_failures,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+
+        # 调用所有回调
+        for callback in self.status_callbacks:
+            try:
+                if asyncio.iscoroutinefunction(callback):
+                    asyncio.create_task(callback(status))
+                else:
+                    callback(status)
+            except Exception as e:
+                self.logger.error(f"状态回调失败: {e}", exc_info=True)
+
+    def get_status(self) -> Dict[str, Any]:
+        """获取Bot状态"""
+        return {
+            "online": self.online_status,
+            "connection_failures": self.connection_failures,
+            "heartbeat_interval": self.heartbeat_interval,
+            "client_connected": self.client.is_connected(),
+            "message_count": len(self.processing_messages)
+        }
 
     async def on_message(self, data: Dict[str, Any]):
         """
@@ -203,7 +324,6 @@ class Bot:
         else:
             for i in range(0, len(message), max_length):
                 await send_func(message[i:i+max_length])
-                import asyncio
                 await asyncio.sleep(0.5)  # 避免触发频率限制
 
     async def send_error(self, data: Dict[str, Any], error_msg: str):

@@ -38,6 +38,10 @@ class OneBotClient:
         self.running = False
         self.heartbeat_task = None
 
+        # 连接状态跟踪
+        self.connected = False
+        self.last_heartbeat_time = None
+
     async def connect(self):
         """连接到OneBot服务器"""
         while self.running:
@@ -47,15 +51,19 @@ class OneBotClient:
                     websockets.connect(self.ws_url),
                     timeout=self.timeout
                 )
+                self.connected = True
+                self.last_heartbeat_time = asyncio.get_event_loop().time()
                 self.logger.info("OneBot 连接成功")
                 break
             except Exception as e:
+                self.connected = False
                 self.logger.error(f"OneBot 连接失败: {e}, {self.reconnect_interval}秒后重试...")
                 await asyncio.sleep(self.reconnect_interval)
 
     async def disconnect(self):
         """断开连接"""
         self.running = False
+        self.connected = False
         if self.heartbeat_task:
             self.heartbeat_task.cancel()
             try:
@@ -87,9 +95,11 @@ class OneBotClient:
                     self.logger.error(f"处理消息失败: {e}", exc_info=True)
         except websockets.exceptions.ConnectionClosed:
             self.logger.warning("OneBot 连接已关闭")
+            self.connected = False
             await self._reconnect()
         except Exception as e:
             self.logger.error(f"OneBot 监听错误: {e}", exc_info=True)
+            self.connected = False
             await self._reconnect()
 
     async def _heartbeat(self):
@@ -100,9 +110,11 @@ class OneBotClient:
                 if self.websocket and not self.websocket.closed:
                     # 发送心跳
                     await self.websocket.ping()
+                    self.last_heartbeat_time = asyncio.get_event_loop().time()
                     self.logger.debug("心跳发送成功")
             except Exception as e:
                 self.logger.error(f"心跳失败: {e}")
+                self.connected = False
                 break
 
     async def _reconnect(self):
@@ -115,6 +127,25 @@ class OneBotClient:
         if self.running:
             await self.listen()
 
+    def is_connected(self) -> bool:
+        """
+        检查是否已连接
+
+        Returns:
+            True: 已连接且活跃
+            False: 未连接或已断开
+        """
+        return self.connected and self.websocket and not self.websocket.closed
+
+    def get_last_heartbeat_time(self) -> Optional[float]:
+        """
+        获取最后一次心跳时间
+
+        Returns:
+            最后心跳时间戳，如果从未心跳则返回None
+        """
+        return self.last_heartbeat_time
+
     async def send(self, data: Dict[str, Any]):
         """
         发送消息到OneBot
@@ -124,7 +155,7 @@ class OneBotClient:
         """
         if not self.websocket or self.websocket.closed:
             self.logger.error("WebSocket未连接，无法发送消息")
-            return
+            raise ConnectionError("WebSocket未连接")
 
         try:
             message = json.dumps(data, ensure_ascii=False)
@@ -132,6 +163,8 @@ class OneBotClient:
             self.logger.debug(f"发送消息: {message}")
         except Exception as e:
             self.logger.error(f"发送消息失败: {e}")
+            self.connected = False
+            raise
 
     async def send_private_message(self, user_id: int, message: str):
         """发送私聊消息"""

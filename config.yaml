@@ -1,4 +1,4 @@
-# Claude QQ Bridge 配置文件
+# ClauQBot 配置文件
 
 # 网络配置
 network:
@@ -18,6 +18,10 @@ claude:
   cli_path: "claude"  # Claude CLI路径，默认在PATH中
   work_dir: "."  # 工作目录，默认为项目根目录
   timeout: 300  # 超时时间（秒）
+  # 错误重试配置
+  max_retries: 3  # 最大重试次数
+  initial_backoff: 1.0  # 初始退避时间（秒）
+  max_backoff: 60.0  # 最大退避时间（秒）
 
 # Bot配置
 bot:
@@ -25,11 +29,15 @@ bot:
   auto_reply_private: true  # 私聊自动回复
   ignore_temp_session: true  # 忽略临时会话
   command_prefix: ["/c", "/claude", "/问", "/ask"]  # 命令前缀
+  # 心跳检测配置
+  heartbeat_enabled: true  # 是否启用心跳检测
+  heartbeat_interval: 60  # 心跳间隔（秒）
+  max_connection_failures: 3  # 连续失败次数阈值
 
 # 后台配置
 daemon:
   enabled: false  # 是否启用后台模式
-  pid_file: "/tmp/claude-qq-bridge.pid"  # PID文件路径
+  pid_file: "/tmp/clauqbot.pid"  # PID文件路径
   log_file: "logs/daemon.log"  # 后台日志文件
 
 # 日志配置

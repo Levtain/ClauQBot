@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="ClauQBot API",
     description="ClauQBot 后端API",
-    version="0.1.0"
+    version="0.2.0"
 )
 
 # 全局变量
@@ -74,16 +74,47 @@ async def root():
     return {
         "status": "running",
         "service": "ClauQBot",
-        "version": "0.1.0"
+        "version": "0.2.0"
     }
 
 
 @app.get("/status")
 async def get_status():
-    """获取服务状态"""
+    """
+    获取服务状态（简化版）
+    """
     return {
         "bot_running": bot_client is not None,
         "bot_task_running": bot_task is not None and not bot_task.done()
+    }
+
+
+@app.get("/status/detailed")
+async def get_detailed_status():
+    """
+    获取详细的服务状态（包含心跳和连接信息）
+    """
+    if bot_client is None:
+        return {
+            "bot_running": False,
+            "message": "Bot未运行"
+        }
+
+    # 获取Bot详细状态
+    bot_status = bot_client.get_status()
+
+    # 获取Claude重试统计
+    claude_stats = bot_client.claude.get_retry_stats()
+
+    return {
+        "bot_running": True,
+        "bot_status": bot_status,
+        "claude_handler": claude_stats,
+        "onebot": {
+            "connected": bot_client.client.is_connected(),
+            "last_heartbeat": bot_client.client.get_last_heartbeat_time()
+        },
+        "timestamp": asyncio.get_event_loop().time()
     }
 
 
@@ -120,11 +151,14 @@ async def start_bot():
             timeout=config.get('network.timeout', 30)
         )
 
-        # 创建Claude处理器
+        # 创建Claude处理器（带重试）
         claude_handler = ClaudeHandler(
             cli_path=config.get('claude.cli_path', 'claude'),
             work_dir=config.get('claude.work_dir', '.'),
             timeout=config.get('claude.timeout', 300),
+            max_retries=config.get('claude.max_retries', 3),
+            initial_backoff=config.get('claude.initial_backoff', 1.0),
+            max_backoff=config.get('claude.max_backoff', 60.0),
             logger=logger
         )
 
@@ -142,6 +176,11 @@ async def start_bot():
         # 启动监听任务
         bot_task = asyncio.create_task(onebot_client.listen())
 
+        # 启动心跳检测
+        await bot_client.start_heartbeat()
+
+        logger.info("Bot启动成功，心跳检测已启用")
+
         return {"status": "success", "message": "Bot已启动"}
     except Exception as e:
         logger.error(f"启动Bot失败: {e}", exc_info=True)
@@ -157,6 +196,10 @@ async def stop_bot():
         return {"status": "error", "message": "Bot未运行"}
 
     try:
+        # 停止心跳检测
+        if bot_client:
+            await bot_client.stop_heartbeat()
+
         # 断开OneBot连接
         await bot_client.client.disconnect()
 
@@ -170,6 +213,8 @@ async def stop_bot():
 
         bot_client = None
         bot_task = None
+
+        logger.info("Bot已停止")
 
         return {"status": "success", "message": "Bot已停止"}
     except Exception as e:

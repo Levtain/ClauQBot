@@ -3,7 +3,7 @@ Streamlit WebUI前端
 """
 import streamlit as st
 import requests
-import yaml
+import time
 from pathlib import Path
 import sys
 
@@ -38,6 +38,10 @@ st.markdown("""
         color: #d32f2f;
         font-weight: bold;
     }
+    .status-warning {
+        color: #ff9800;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,6 +53,15 @@ def get_status():
         return response.json()
     except Exception as e:
         return {"bot_running": False, "bot_task_running": False, "error": str(e)}
+
+
+def get_detailed_status():
+    """获取详细的服务状态"""
+    try:
+        response = requests.get(f"{API_URL}/status/detailed")
+        return response.json()
+    except Exception as e:
+        return {}
 
 
 def get_config():
@@ -130,6 +143,7 @@ def main():
                 result = start_bot()
                 if result.get('status') == 'success':
                     st.success("Bot启动成功！")
+                    time.sleep(1)
                     st.rerun()
                 else:
                     st.error(f"启动失败: {result.get('message')}")
@@ -139,6 +153,7 @@ def main():
                 result = stop_bot()
                 if result.get('status') == 'success':
                     st.success("Bot已停止")
+                    time.sleep(1)
                     st.rerun()
                 else:
                     st.error(f"停止失败: {result.get('message')}")
@@ -148,6 +163,7 @@ def main():
                 result = restart_bot()
                 if result.get('status') == 'success':
                     st.success("Bot已重启")
+                    time.sleep(1)
                     st.rerun()
                 else:
                     st.error(f"重启失败: {result.get('message')}")
@@ -186,6 +202,8 @@ def main():
             - ✅ 成本显示
             - ✅ 后台运行
             - ✅ 日志系统
+            - ✅ 心跳检测
+            - ✅ 错误重试
             """)
 
         st.divider()
@@ -196,6 +214,8 @@ def main():
         - **Bot框架**: OneBot v11协议
         - **AI调用**: Claude Code CLI
         - **日志**: Python logging
+        - **心跳**: 每60秒检测连接状态
+        - **重试**: 指数退避策略
         """)
 
     elif page == "⚙️ 配置管理":
@@ -281,6 +301,35 @@ def main():
                 max_value=3600
             )
 
+            st.divider()
+            st.subheader("错误重试配置")
+
+            max_retries = st.number_input(
+                "最大重试次数",
+                value=claude.get('max_retries', 3),
+                min_value=0,
+                max_value=10,
+                help="调用失败时的重试次数"
+            )
+
+            initial_backoff = st.number_input(
+                "初始退避时间（秒）",
+                value=claude.get('initial_backoff', 1.0),
+                min_value=0.1,
+                max_value=10.0,
+                step=0.1,
+                help="首次重试前的等待时间"
+            )
+
+            max_backoff = st.number_input(
+                "最大退避时间（秒）",
+                value=claude.get('max_backoff', 60.0),
+                min_value=1.0,
+                max_value=300.0,
+                step=1.0,
+                help="重试等待时间的最大值"
+            )
+
         with tab3:
             st.subheader("Bot配置")
             bot = config.get('bot', {})
@@ -304,6 +353,33 @@ def main():
             command_prefix_str = st.text_input(
                 "命令前缀（逗号分隔）",
                 value=', '.join(bot.get('command_prefix', ['/c', '/claude', '/问', '/ask']))
+            )
+
+            st.divider()
+            st.subheader("心跳检测配置")
+
+            heartbeat_enabled = st.checkbox(
+                "启用心跳检测",
+                value=bot.get('heartbeat_enabled', True),
+                help="定期检测NapCat连接状态"
+            )
+
+            heartbeat_interval = st.number_input(
+                "心跳间隔（秒）",
+                value=bot.get('heartbeat_interval', 60),
+                min_value=10,
+                max_value=600,
+                disabled=not heartbeat_enabled,
+                help="心跳检测的时间间隔"
+            )
+
+            max_connection_failures = st.number_input(
+                "连续失败阈值",
+                value=bot.get('max_connection_failures', 3),
+                min_value=1,
+                max_value=10,
+                disabled=not heartbeat_enabled,
+                help="连续失败多少次判定为掉线"
             )
 
         with tab4:
@@ -399,13 +475,19 @@ def main():
                     "claude": {
                         "cli_path": cli_path,
                         "work_dir": work_dir,
-                        "timeout": timeout
+                        "timeout": timeout,
+                        "max_retries": max_retries,
+                        "initial_backoff": initial_backoff,
+                        "max_backoff": max_backoff
                     },
                     "bot": {
                         "qq_number": qq_number,
                         "auto_reply_private": auto_reply_private,
                         "ignore_temp_session": ignore_temp_session,
-                        "command_prefix": [p.strip() for p in command_prefix_str.split(',')]
+                        "command_prefix": [p.strip() for p in command_prefix_str.split(',')],
+                        "heartbeat_enabled": heartbeat_enabled,
+                        "heartbeat_interval": heartbeat_interval,
+                        "max_connection_failures": max_connection_failures
                     },
                     "logging": {
                         "level": level,
@@ -442,35 +524,93 @@ def main():
     elif page == "📊 系统状态":
         st.header("系统状态")
 
-        # API状态
+        # 详细状态
+        detailed_status = get_detailed_status()
+
+        # Bot状态
         col1, col2 = st.columns(2)
 
         with col1:
             st.subheader("🤖 Bot状态")
-            status = get_status()
 
-            if status.get('bot_running'):
-                st.success("✅ Bot 运行中")
-                if status.get('bot_task_running'):
-                    st.success("✅ Bot任务运行中")
-                else:
-                    st.warning("⚠️ Bot任务已停止")
+            if not detailed_status:
+                st.error("❌ Bot未运行或无法获取状态")
             else:
-                st.error("❌ Bot 未运行")
+                bot_status = detailed_status.get('bot_status', {})
+
+                # 在线状态
+                online = bot_status.get('online', False)
+                if online:
+                    st.success("✅ Bot 在线")
+                else:
+                    st.error("❌ Bot 离线")
+                    st.warning("NapCat连接可能已断开")
+
+                st.json(bot_status)
 
         with col2:
-            st.subheader("🌐 API状态")
-            try:
-                response = requests.get(f"{API_URL}/")
-                if response.status_code == 200:
-                    st.success("✅ API 服务正常")
-                    st.json(response.json())
+            st.subheader("🌐 OneBot连接状态")
+
+            if not detailed_status:
+                st.error("❌ 无法获取状态")
+            else:
+                onebot = detailed_status.get('onebot', {})
+                connected = onebot.get('connected', False)
+
+                if connected:
+                    st.success("✅ OneBot 已连接")
                 else:
-                    st.error(f"❌ API 服务异常: {response.status_code}")
-            except Exception as e:
-                st.error(f"❌ API 连接失败: {e}")
+                    st.error("❌ OneBot 未连接")
+
+                last_heartbeat = onebot.get('last_heartbeat')
+                if last_heartbeat:
+                    import time as time_module
+                    elapsed = time_module.time() - last_heartbeat
+                    if elapsed < 60:
+                        st.success(f"✅ 心跳正常（{elapsed:.1f}秒前）")
+                    else:
+                        st.warning(f"⚠️ 心跳异常（{elapsed:.1f}秒前）")
+
+                st.json(onebot)
 
         st.divider()
+
+        # Claude状态
+        st.subheader("🤖 Claude调用状态")
+
+        if not detailed_status:
+            st.error("❌ 无法获取状态")
+        else:
+            claude_handler = detailed_status.get('claude_handler', {})
+            st.json(claude_handler)
+
+            # 显示重试配置
+            st.write("**重试配置:**")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("最大重试次数", claude_handler.get('max_retries', 0))
+            with col2:
+                st.metric("初始退避(秒)", f"{claude_handler.get('initial_backoff', 0):.1f}")
+            with col3:
+                st.metric("最大退避(秒)", f"{claude_handler.get('max_backoff', 0):.1f}")
+
+        st.divider()
+
+        # API状态
+        st.subheader("🌐 API状态")
+        try:
+            response = requests.get(f"{API_URL}/")
+            if response.status_code == 200:
+                st.success("✅ API 服务正常")
+                st.json(response.json())
+            else:
+                st.error(f"❌ API 服务异常: {response.status_code}")
+        except Exception as e:
+            st.error(f"❌ API 连接失败: {e}")
+
+        st.divider()
+
+        # 当前配置
         st.subheader("📝 当前配置")
         st.json(get_config())
 
